@@ -1,0 +1,25 @@
+
+name: security-lint
+on: [push, pull_request]
+permissions: { contents: read }
+jobs:
+  dotnet:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "8.0.x" }
+      - run: dotnet build -warnaserror:CA2100,CA3001
+      - name: Vulnerable packages
+        run: |
+          $out = dotnet list package --vulnerable --include-transitive
+          $out
+          if ($out -match "has the following vulnerable") { exit 1 }
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
