@@ -1,10 +1,16 @@
-
-// Program.cs (deliberately vulnerable)
+using System.Net;
 using Microsoft.Data.SqlClient;
 
-var app = WebApplication.CreateBuilder(args).Build();
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
 
-const string ApiKey = "x8F3kq9ZpL2vR7tY1wN4bC6dE0hJ5mQs"; // lab test
+// Read the API key from configuration, not from source code.
+var apiKey = app.Configuration["ApiKey"];
+
+if (string.IsNullOrWhiteSpace(apiKey))
+{
+    app.Logger.LogWarning("ApiKey is not configured.");
+}
 
 const string Conn = @"Server=(localdb)\MSSQLLocalDB;" +
                     "Database=Guestbook;Integrated Security=True";
@@ -15,14 +21,18 @@ app.MapGet("/search", (string q) =>
     db.Open();
 
     var cmd = new SqlCommand(
-        "SELECT Name, Msg FROM Entries WHERE Msg LIKE '%"
-        + q + "%'", db);
+        "SELECT Name, Msg FROM Entries WHERE Msg LIKE @q", db);
+
+    cmd.Parameters.AddWithValue("@q", "%" + q + "%");
 
     using var r = cmd.ExecuteReader();
 
     var html = "";
     while (r.Read())
-        html += $"<p>{r[0]}: {r[1]}</p>";
+    {
+        html += $"<p>{WebUtility.HtmlEncode(r[0].ToString())}: " +
+         $"{WebUtility.HtmlEncode(r[1].ToString())}</p>";
+    }
 
     return Results.Content(html, "text/html");
 });
